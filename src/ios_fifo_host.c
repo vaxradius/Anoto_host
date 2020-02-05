@@ -518,12 +518,13 @@ int main(void)
     //
     //am_bsp_itm_printf_enable();
     Uart_Init();
+    SBC_init();
 
     //
     // Clear the terminal and print the banner.
     //
     //am_util_stdio_terminal_clear();
-    am_util_stdio_printf("IOS Test Host: Waiting for at least %d bytes from the slave.", MAX_SIZE);
+    //am_util_stdio_printf("IOS Test Host: Waiting for at least %d bytes from the slave.", MAX_SIZE);
 
 
     //

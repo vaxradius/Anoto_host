@@ -4,6 +4,23 @@
 #include "am_mcu_apollo.h"
 #include "am_bsp.h"
 #include "am_util.h"
+#include "sbc.h"
+
+#define SBC_IN_RING_BUFF_SIZE           (128*2)
+
+//
+// If using SBC compression, select audio transfer compression ratio
+// 1:1 = 256000 bps, 4:1 = 64000 bps, 8:1 = 32000 bps, 16:1 = 16000 bps
+//
+#define SBC_BLUEZ_COMPRESS_BPS          64000
+#define SBC_OUT_RING_BUFF_SIZE          (SBC_BLUEZ_COMPRESS_BPS / 1000)
+
+#define CODEC_IN_RING_BUFF_SIZE     SBC_IN_RING_BUFF_SIZE
+#define CODEC_OUT_RING_BUFF_SIZE    SBC_OUT_RING_BUFF_SIZE
+
+int8_t codecInputBuffer[CODEC_IN_RING_BUFF_SIZE];
+uint8_t codecOutputBuffer[CODEC_OUT_RING_BUFF_SIZE];
+sbc_t   g_BluezSBdecodeCInstance;
 
 //*****************************************************************************
 //
@@ -166,7 +183,7 @@ Uart_Init(void)
 }
 
 
-#define PDM_DUMP_SIZE                (1024*180)
+#define PDM_DUMP_SIZE                (1024*(180-12))
 //*****************************************************************************
 //
 // Global variables.
@@ -212,11 +229,37 @@ pcm_print(void)
 uint32_t index = 0;
 void pdm_dump(uint16_t *in,uint32_t len)
 {
+	int32_t CompressedLen;
+	
 	if(index >= PDM_DUMP_SIZE)
 		pcm_print();
+#if 1
+	if(len != CODEC_OUT_RING_BUFF_SIZE/2)
+	{
+		am_util_stdio_printf("len(%d) != (%d)CODEC_OUT_RING_BUFF_SIZE/2\r\n", len, CODEC_OUT_RING_BUFF_SIZE/2);
+		while(1);
+	}
 	
+	sbc_decoder_decode(&g_BluezSBdecodeCInstance, (const void *) in, CODEC_OUT_RING_BUFF_SIZE, 
+						(void *) codecInputBuffer, CODEC_IN_RING_BUFF_SIZE, &CompressedLen);
+	
+	memcpy(g_ui16PDMDataBuffer+index, codecInputBuffer, CODEC_IN_RING_BUFF_SIZE);
+	index += (CODEC_IN_RING_BUFF_SIZE/2);
+#else
 	memcpy(g_ui16PDMDataBuffer+index, in, len*2);
 	index += len;
+#endif
+}
+
+void SBC_init(void)
+{
+	sbc_decode_init(&g_BluezSBdecodeCInstance, 0);  //0: SBC
+	if(g_BluezSBdecodeCInstance.priv_alloc_base == 0)
+	{
+		am_util_stdio_printf("g_BluezSBdecodeCInstance.priv_alloc_base == 0\r\n");
+		while(1);
+	}
+	g_BluezSBdecodeCInstance.endian = SBC_LE;
 }
 
 
