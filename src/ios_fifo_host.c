@@ -486,6 +486,16 @@ void update_progress(uint32_t ui32NumPackets)
     }
 }
 
+void FwNLibVersionGet(void)
+{
+	uint32_t data;
+	int16_t *pi16ver;
+	iom_slave_read(USE_SPI, 0x04, &data, 4);
+	pi16ver = (int16_t *)(&data);
+	
+	am_util_stdio_printf("FW version:%d, LIB version:%d\r\n",*pi16ver, *(pi16ver+1));
+}
+
 //*****************************************************************************
 //
 // Main function.
@@ -546,8 +556,9 @@ int main(void)
 
     iom_set_up(iom, bSpi);
 
-    // Make sure the print is complete
-    am_util_delay_ms(100);
+    am_util_delay_ms(10);
+
+    FwNLibVersionGet();
 
     // Send the START
     data = AM_IOSTEST_CMD_START_DATA;
