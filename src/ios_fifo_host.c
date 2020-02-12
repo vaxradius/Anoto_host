@@ -583,40 +583,34 @@ int main(void)
             if ( bReadIosData )
             {
                 uint32_t iosSize = 0;
+                bool isSRAMFull = false;
 
                 bReadIosData = false;
 
                 // Read the Data Size
                 iom_slave_read(bSpi, IOSOFFSET_READ_FIFOCTR, &iosSize, 2);
                 iosSize = (iosSize > maxSize)? maxSize: iosSize;
-#if 0
-                // Initialize Rx Buffer for later comparison
-                clear_rx_buf();
-#endif
+
                 // Read the data
                 iom_slave_read(bSpi, IOSOFFSET_READ_FIFO,
                     (uint32_t *)g_pui8RcvBuf, iosSize);
-#if 0
-                // Validate Content
-                if ( !validate_rx_buf(iosSize) )
-                {
-                    am_util_stdio_printf("\nData Verification failed Accum:%lu rx=%d\n",
-                        g_startIdx, iosSize);
-                }
-#else
-		   pdm_dump((uint16_t *)g_pui8RcvBuf,iosSize/2);
-#endif
+
+		   isSRAMFull = store2sram((uint16_t *)g_pui8RcvBuf,iosSize/2);
+
                 // Send the ACK/STOP
-                data = AM_IOSTEST_CMD_ACK_DATA;
-#if 0
-                update_progress(g_startIdx);
-#endif
-                if ( g_startIdx >= MAX_SIZE )
+                if (isSRAMFull)
                 {
                     bDone = true;
                     data = AM_IOSTEST_CMD_STOP_DATA;
                 }
+		   else
+		   	data = AM_IOSTEST_CMD_ACK_DATA;
+		   
                 iom_slave_write(bSpi, IOSOFFSET_WRITE_CMD, &data, 1);
+
+		   if (isSRAMFull)
+		   	pcm_print();
+		   
             }
         }
         else

@@ -227,13 +227,11 @@ pcm_print(void)
 
 
 uint32_t index = 0;
-void pdm_dump(uint16_t *in,uint32_t len)
+/*retun true means sram is full*/
+bool store2sram(uint16_t *in,uint32_t len)
 {
 	int32_t CompressedLen;
 	
-	if(index >= PDM_DUMP_SIZE)
-		pcm_print();
-#if 1
 	if(len != CODEC_OUT_RING_BUFF_SIZE/2)
 	{
 		am_util_stdio_printf("len(%d) != (%d)CODEC_OUT_RING_BUFF_SIZE/2\r\n", len, CODEC_OUT_RING_BUFF_SIZE/2);
@@ -244,11 +242,16 @@ void pdm_dump(uint16_t *in,uint32_t len)
 						(void *) codecInputBuffer, CODEC_IN_RING_BUFF_SIZE, &CompressedLen);
 	
 	memcpy(g_ui16PDMDataBuffer+index, codecInputBuffer, CODEC_IN_RING_BUFF_SIZE);
+	
 	index += (CODEC_IN_RING_BUFF_SIZE/2);
-#else
-	memcpy(g_ui16PDMDataBuffer+index, in, len*2);
-	index += len;
-#endif
+	if(index >= PDM_DUMP_SIZE)
+	{
+		index = 0;
+		return true;
+	}
+	else
+		return false;
+
 }
 
 void SBC_init(void)
