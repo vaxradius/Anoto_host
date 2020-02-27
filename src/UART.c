@@ -56,7 +56,7 @@ error_handler(uint32_t ui32ErrorStatus)
 //
 //*****************************************************************************
 uint8_t g_pui8TxBuffer[256];
-uint8_t g_pui8RxBuffer[2];
+uint8_t g_pui8RxBuffer[256];
 
 //*****************************************************************************
 //
@@ -101,9 +101,39 @@ am_uart_isr(void)
     // Service the FIFOs as necessary, and clear the interrupts.
     //
     uint32_t ui32Status, ui32Idle;
+#if 0	
     am_hal_uart_interrupt_status_get(phUART, &ui32Status, true);
     am_hal_uart_interrupt_clear(phUART, ui32Status);
     am_hal_uart_interrupt_service(phUART, ui32Status, &ui32Idle);
+#else	
+    am_hal_uart_interrupt_status_get(phUART, &ui32Status, true);
+    am_hal_uart_interrupt_clear(phUART, ui32Status);
+    am_hal_uart_interrupt_service(phUART, ui32Status, 0);
+#endif
+}
+
+char getChar(void)
+{
+
+	uint32_t ret = AM_HAL_STATUS_SUCCESS;
+	uint32_t transfer_size = 0;
+	char data = 0;
+
+	am_hal_uart_transfer_t sUartRead = {
+		.ui32Direction = AM_HAL_UART_READ,
+		.pui8Data = (uint8_t *) &data,
+		.ui32NumBytes = 1,
+		.ui32TimeoutMs = AM_HAL_UART_WAIT_FOREVER,
+		.pui32BytesTransferred = &transfer_size,
+	};
+
+	ret = am_hal_uart_transfer(phUART, &sUartRead);
+
+	if (ret != AM_HAL_STATUS_SUCCESS || transfer_size != 1)
+		return 0;
+	else
+		return data;
+
 }
 
 //*****************************************************************************
@@ -175,6 +205,10 @@ Uart_Init(void)
     //
     NVIC_EnableIRQ((IRQn_Type)(UART0_IRQn + AM_BSP_UART_PRINT_INST));
 
+    am_hal_uart_interrupt_enable(phUART,
+                                 (AM_HAL_UART_INT_RX | AM_HAL_UART_INT_TX |
+                                  AM_HAL_UART_INT_RX_TMOUT | AM_HAL_UART_INT_TXCMP));
+
     //
     // Set the main print interface to use the UART print function we defined.
     //
@@ -195,33 +229,12 @@ void
 pcm_print(void)
 {
 	int16_t *pi16PDMData = (int16_t *) g_ui16PDMDataBuffer;
-#if 1
+
 	for (uint32_t i = 0; i < PDM_DUMP_SIZE; i++)
 	{
 		am_util_stdio_printf("%d\n", pi16PDMData[i]);
-		//am_util_delay_ms(1);
 	}
 
-#else
-	am_util_stdio_printf("#define DUMP_SIZE (%d)\n", PDM_DUMP_SIZE);
-	am_util_stdio_printf("const int16_t dump[DUMP_SIZE] = {\n");
-	for (uint32_t j = 0; j < PDM_DUMP_SIZE; j++)
-	{
-		if(j%32==0)
-		{
-			am_util_stdio_printf("\n", pi16PDMData[j]);
-			am_util_delay_ms(1);
-		}
-
-		if(j ==  (PDM_DUMP_SIZE-1))
-			am_util_stdio_printf("%d ", pi16PDMData[j]);
-		else
-			am_util_stdio_printf("%d, ", pi16PDMData[j]);
-		
-		am_util_delay_ms(1);
-	}
-	am_util_stdio_printf("};\n\n");
-#endif
 	while(1);
 }
 

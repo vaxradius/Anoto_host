@@ -120,6 +120,8 @@ typedef enum
     AM_IOSTEST_CMD_START_DATA    = 0,
     AM_IOSTEST_CMD_STOP_DATA     = 1,
     AM_IOSTEST_CMD_ACK_DATA      = 2,
+    AM_IOSTEST_CMD_ENABLE_I2S    = 3,
+    AM_IOSTEST_CMD_DISABLE_I2S     = 4,
 } AM_IOSTEST_CMD_E;
 
 #define IOSOFFSET_WRITE_INTEN       0xF8
@@ -509,6 +511,7 @@ int main(void)
     bool bDone = false;
     uint32_t data;
     uint32_t maxSize = (bSpi) ? MAX_SPI_SIZE: MAX_I2C_SIZE;
+    char uartCMD = 0;
 
     am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
 
@@ -523,43 +526,53 @@ int main(void)
     //
     am_bsp_low_power_init();
 
-    //
-    // Enable the ITM print interface.
-    //
-    //am_bsp_itm_printf_enable();
+
     Uart_Init();
     SBC_init();
-
-    //
-    // Clear the terminal and print the banner.
-    //
-    //am_util_stdio_terminal_clear();
-    //am_util_stdio_printf("IOS Test Host: Waiting for at least %d bytes from the slave.", MAX_SIZE);
-
-
-    //
-    // Allow time for all printing to finish.
-    //
-    am_util_delay_ms(10);
 
     //
     // Enable Interrupts.
     //
     am_hal_interrupt_master_enable();
-
-    //
-    // Set up the IOM
-    //
-#if defined(MIKROE_1032) || defined(MIKROE_2529)
-    g_sIOMI2cConfig.ui32ClockFreq = AM_HAL_IOM_400KHZ;
-#endif
+    am_util_delay_ms(10); /*wait for AP2 power on ready*/
 
     iom_set_up(iom, bSpi);
 
-    am_util_delay_ms(10);
-
     FwNLibVersionGet();
 
+    while(1)
+    {
+		am_util_stdio_printf("Press %c to send the ENABLE I2S CMD to AP2 \r\n", 'a');
+		am_util_stdio_printf("Press %c to send the START SPI CMD to AP2 \r\n", 's');
+		uartCMD = getChar();
+		am_util_stdio_printf("Reveice a char:%c\r\n",uartCMD);
+
+		if(uartCMD == 'a')
+		{
+			I2Smaster_init();
+			am_util_stdio_printf("Send the ENABLE I2S CMD to AP2\r\n");
+			// Send the ENABLE I2S CMD to AP2
+			data = AM_IOSTEST_CMD_ENABLE_I2S;
+			iom_slave_write(bSpi, IOSOFFSET_WRITE_CMD, &data, 1);
+
+			
+
+			am_util_stdio_printf("Press any key to disable AP2 I2S Pass-Throught\r\n");
+			
+			uartCMD = getChar();
+
+			am_util_stdio_printf("Send the DISABLE I2S CMD to AP2\r\n");
+			I2Smaster_deinit();
+			// Send the DISABLE I2S CMD to AP2
+			data = AM_IOSTEST_CMD_DISABLE_I2S;
+			iom_slave_write(bSpi, IOSOFFSET_WRITE_CMD, &data, 1);
+		}
+		
+		if(uartCMD == 's')
+			break;
+
+    }
+    am_util_stdio_printf("Send the START SPI CMD to AP2\r\n");
     // Send the START
     data = AM_IOSTEST_CMD_START_DATA;
     iom_slave_write(bSpi, IOSOFFSET_WRITE_CMD, &data, 1);
